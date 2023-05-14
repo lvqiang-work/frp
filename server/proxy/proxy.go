@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -177,7 +179,29 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 					return
 				}
 				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
-				go handler(p, c, pxy.serverCfg)
+				// check proxy port info
+				url := fmt.Sprintf("%s?clientToken=%s&proxyName=%s&clientAddr=%s", pxy.serverCfg.AddrCheckUrl, pxy.ClientToken, pxy.GetName(), strings.Split(c.RemoteAddr().String(), ":")[0])
+				xl.Info("addr_check_url:[%s]", url)
+				resp, err := http.Get(url)
+				if err != nil {
+					return
+				}
+
+				defer func(Body io.ReadCloser) {
+					err := Body.Close()
+					if err != nil {
+						return
+					}
+				}(resp.Body)
+				body, _ := io.ReadAll(resp.Body)
+
+				if string(body) != "yes" {
+					xl.Warn("[" + pxy.GetName() + "][" + c.RemoteAddr().String() + "]addr  proxy check error")
+					err = fmt.Errorf("[" + pxy.GetName() + "][" + c.RemoteAddr().String() + "]addr proxy check error")
+					c.Close()
+				} else {
+					go handler(p, c, pxy.serverCfg)
+				}
 			}
 		}(listener)
 	}

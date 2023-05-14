@@ -65,26 +65,26 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 		body, _ := io.ReadAll(resp.Body)
 
 		if string(body) != "yes" {
-			err = fmt.Errorf("[" + pxy.cfg.ProxyName + "][" + strconv.Itoa(pxy.cfg.RemotePort) + "]proxy check error")
+			err = fmt.Errorf("[" + pxy.cfg.ProxyName + "][" + strconv.Itoa(pxy.cfg.RemotePort) + "]tcp proxy check error")
 			return
-		}
-
-		pxy.realPort, err = pxy.rc.TCPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
-		if err != nil {
-			return
-		}
-		defer func() {
+		} else {
+			pxy.realPort, err = pxy.rc.TCPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 			if err != nil {
-				pxy.rc.TCPPortManager.Release(pxy.realPort)
+				return
 			}
-		}()
-		listener, errRet := net.Listen("tcp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realPort)))
-		if errRet != nil {
-			err = errRet
-			return
+			defer func() {
+				if err != nil {
+					pxy.rc.TCPPortManager.Release(pxy.realPort)
+				}
+			}()
+			listener, errRet := net.Listen("tcp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realPort)))
+			if errRet != nil {
+				err = errRet
+				return
+			}
+			pxy.listeners = append(pxy.listeners, listener)
+			xl.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 		}
-		pxy.listeners = append(pxy.listeners, listener)
-		xl.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 	}
 
 	pxy.cfg.RemotePort = pxy.realPort

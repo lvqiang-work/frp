@@ -1,0 +1,16 @@
+D:\WorkSpace\go\frp\client\control.go
+D:\WorkSpace\go\frp\client\service.go
+D:\WorkSpace\go\frp\conf\frpc.ini
+D:\WorkSpace\go\frp\conf\frpc_full.ini
+D:\WorkSpace\go\frp\conf\frps.ini
+D:\WorkSpace\go\frp\conf\frps_full.ini
+D:\WorkSpace\go\frp\pkg\auth\token.go
+D:\WorkSpace\go\frp\pkg\config\proxy.go
+D:\WorkSpace\go\frp\pkg\msg\msg.go
+D:\WorkSpace\go\frp\server\proxy\http.go
+D:\WorkSpace\go\frp\server\proxy\https.go
+D:\WorkSpace\go\frp\server\proxy\proxy.go
+D:\WorkSpace\go\frp\server\proxy\tcp.go
+D:\WorkSpace\go\frp\server\proxy\udp.go
+D:\WorkSpace\go\frp\server\control.go
+D:\WorkSpace\go\frp\server\service.go

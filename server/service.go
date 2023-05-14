@@ -54,8 +54,8 @@ import (
 )
 
 const (
-	connReadTimeout       = 10 * time.Second
-	vhostReadWriteTimeout = 30 * time.Second
+	connReadTimeout       time.Duration = 10 * time.Second
+	vhostReadWriteTimeout time.Duration = 30 * time.Second
 )
 
 // Server service
@@ -492,24 +492,24 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 	if string(body) != "yes" {
 		err = fmt.Errorf("client token auth failed")
 		return
+	} else {
+		ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
+		if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
+			oldCtl.allShutdown.WaitDone()
+		}
+
+		ctl.Start()
+
+		// for statistics
+		metrics.Server.NewClient()
+
+		go func() {
+			// block until control closed
+			ctl.WaitClosed()
+			svr.ctlManager.Del(loginMsg.RunID, ctl)
+		}()
+		return
 	}
-
-	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
-	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
-		oldCtl.allShutdown.WaitDone()
-	}
-
-	ctl.Start()
-
-	// for statistics
-	metrics.Server.NewClient()
-
-	go func() {
-		// block until control closed
-		ctl.WaitClosed()
-		svr.ctlManager.Del(loginMsg.RunID, ctl)
-	}()
-	return
 }
 
 // RegisterWorkConn register a new work connection to control and proxies need it.

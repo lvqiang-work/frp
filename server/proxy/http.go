@@ -99,7 +99,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 
 	if pxy.cfg.SubDomain != "" {
 		// check proxy domain info
-		url := fmt.Sprintf("%s?clientToken=%s&proxyName=%s&subDomain=%s", pxy.serverCfg.DomainCheckUrl, pxy.ClientToken, pxy.cfg.ProxyName, pxy.cfg.SubDomain)
+		url := fmt.Sprintf("%s?clientToken=%s&proxyName=%s&subDomain=%s", pxy.serverCfg.DomainCheckUrl, pxy.ClientToken, pxy.cfg.ProxyName, strings.Replace(pxy.cfg.SubDomain, pxy.userInfo.User+".", "", 1))
 		xl.Info("domain_check_url:[%s]", url)
 		resp, err2 := http.Get(url)
 		if err2 != nil {
@@ -115,38 +115,39 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 		body, _ := io.ReadAll(resp.Body)
 
 		if string(body) != "yes" {
-			err = fmt.Errorf("[" + pxy.cfg.ProxyName + "][" + pxy.cfg.SubDomain + "]proxy check error")
+			err = fmt.Errorf("[" + pxy.cfg.ProxyName + "][" + pxy.cfg.SubDomain + "]SubDomain proxy check error")
 			return
-		}
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
-		for _, location := range locations {
-			routeConfig.Location = location
+		} else {
+			routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
+			for _, location := range locations {
+				routeConfig.Location = location
 
-			tmpRouteConfig := routeConfig
+				tmpRouteConfig := routeConfig
 
-			// handle group
-			if pxy.cfg.Group != "" {
-				err = pxy.rc.HTTPGroupCtl.Register(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, routeConfig)
-				if err != nil {
-					return
+				// handle group
+				if pxy.cfg.Group != "" {
+					err = pxy.rc.HTTPGroupCtl.Register(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, routeConfig)
+					if err != nil {
+						return
+					}
+
+					pxy.closeFuncs = append(pxy.closeFuncs, func() {
+						pxy.rc.HTTPGroupCtl.UnRegister(pxy.name, pxy.cfg.Group, tmpRouteConfig)
+					})
+				} else {
+					err = pxy.rc.HTTPReverseProxy.Register(routeConfig)
+					if err != nil {
+						return
+					}
+					pxy.closeFuncs = append(pxy.closeFuncs, func() {
+						pxy.rc.HTTPReverseProxy.UnRegister(tmpRouteConfig)
+					})
 				}
+				addrs = append(addrs, util.CanonicalAddr(tmpRouteConfig.Domain, pxy.serverCfg.VhostHTTPPort))
 
-				pxy.closeFuncs = append(pxy.closeFuncs, func() {
-					pxy.rc.HTTPGroupCtl.UnRegister(pxy.name, pxy.cfg.Group, tmpRouteConfig)
-				})
-			} else {
-				err = pxy.rc.HTTPReverseProxy.Register(routeConfig)
-				if err != nil {
-					return
-				}
-				pxy.closeFuncs = append(pxy.closeFuncs, func() {
-					pxy.rc.HTTPReverseProxy.UnRegister(tmpRouteConfig)
-				})
+				xl.Info("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
+					routeConfig.Domain, routeConfig.Location, pxy.cfg.Group, pxy.cfg.RouteByHTTPUser)
 			}
-			addrs = append(addrs, util.CanonicalAddr(tmpRouteConfig.Domain, pxy.serverCfg.VhostHTTPPort))
-
-			xl.Info("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
-				routeConfig.Domain, routeConfig.Location, pxy.cfg.Group, pxy.cfg.RouteByHTTPUser)
 		}
 	}
 	remoteAddr = strings.Join(addrs, ",")

@@ -58,7 +58,7 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 
 	if pxy.cfg.SubDomain != "" {
 		// check proxy domain info
-		url := fmt.Sprintf("%s?clientToken=%s&proxyName=%s&subDomain=%s", pxy.serverCfg.DomainCheckUrl, pxy.ClientToken, pxy.cfg.ProxyName, pxy.cfg.SubDomain)
+		url := fmt.Sprintf("%s?clientToken=%s&proxyName=%s&subDomain=%s", pxy.serverCfg.DomainCheckUrl, pxy.ClientToken, pxy.cfg.ProxyName, strings.Replace(pxy.cfg.SubDomain, pxy.userInfo.User+".", "", 1))
 		xl.Info("domain_check_url:[%s]", url)
 		resp, err2 := http.Get(url)
 		if err2 != nil {
@@ -74,18 +74,20 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 		body, _ := io.ReadAll(resp.Body)
 
 		if string(body) != "yes" {
-			err = fmt.Errorf("[" + pxy.cfg.ProxyName + "][" + pxy.cfg.SubDomain + "]proxy check error")
+			err = fmt.Errorf("[" + pxy.cfg.ProxyName + "][" + pxy.cfg.SubDomain + "]SubDomain proxy check error")
 			return
+		} else {
+			routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
+			l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
+			if errRet != nil {
+				err = errRet
+				return
+			} else {
+				xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
+				pxy.listeners = append(pxy.listeners, l)
+				addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
+			}
 		}
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
-		l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
-		if errRet != nil {
-			err = errRet
-			return
-		}
-		xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
-		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
 	}
 
 	pxy.startListenHandler(pxy, HandleUserTCPConnection)

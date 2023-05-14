@@ -35,6 +35,8 @@ type TokenConfig struct {
 	PortCheckUrl string `ini:"port_check_url" json:"port_check_url"`
 	//验证客户端二级域名是否合法
 	DomainCheckUrl string `ini:"domain_check_url" json:"domain_check_url"`
+	//验证客户端请求地址是否合法
+	AddrCheckUrl string `ini:"addr_check_url" json:"addr_check_url"`
 }
 
 func getDefaultTokenConf() TokenConfig {
