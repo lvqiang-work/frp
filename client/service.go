@@ -21,7 +21,6 @@ import (
 	"io"
 	"math/rand"
 	"net"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -211,19 +210,13 @@ func (svr *Service) keepControllerWorking() {
 			conn, session, err := svr.login()
 			if err != nil {
 				xl.Warn("reconnect to server error: %v, wait %v for another retry", err, delayTime)
-				if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "refused it") {
-					util.RandomSleep(delayTime, 0.9, 1.1)
+				util.RandomSleep(delayTime, 0.9, 1.1)
 
-					delayTime *= 2
-					if delayTime > maxDelayTime {
-						delayTime = maxDelayTime
-					}
-					continue
-				} else {
-					xl.Warn("login error, now exit app")
-					os.Exit(1)
-					return
+				delayTime *= 2
+				if delayTime > maxDelayTime {
+					delayTime = maxDelayTime
 				}
+				continue
 			}
 			// reconnect success, init delayTime
 			delayTime = time.Second
